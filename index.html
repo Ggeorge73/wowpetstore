@@ -17,18 +17,8 @@
   <!-- ======== HERO ======== -->
   <section class="hero" id="hero">
     <div class="hero-bg" style="position: absolute; inset: 0; overflow: hidden;">
-      <video class="hero-video" id="hero-video-1" autoplay muted loop playsinline preload="auto" poster="assets/images/hero.jpg" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease; opacity: 1; z-index: 1;">
-        <source src="assets/videos/hero_dog.mp4" type="video/mp4">
-      </video>
-      <video class="hero-video" id="hero-video-2" autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease; opacity: 0; z-index: 1;">
-        <source src="assets/videos/hero_cat.mp4" type="video/mp4">
-      </video>
-      <video class="hero-video" id="hero-video-3" autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease; opacity: 0; z-index: 1;">
-        <source src="assets/videos/hero_bunny.mp4" type="video/mp4">
-      </video>
-      <video class="hero-video" id="hero-video-4" autoplay muted loop playsinline preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease; opacity: 0; z-index: 1;">
-        <source src="assets/videos/hero_bird.mp4" type="video/mp4">
-      </video>
+      <video id="hero-vid-a" autoplay muted loop playsinline preload="auto" poster="assets/images/hero.jpg" src="assets/videos/hero_dog.mp4" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.5s ease;opacity:1;z-index:2;"></video>
+      <video id="hero-vid-b" muted loop playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.5s ease;opacity:0;z-index:1;"></video>
     </div>
     <div class="hero-overlay"></div>
     <div class="container">
@@ -320,48 +310,57 @@
       ghsEl.textContent = `&#x1F3C6; High Score: ${ghs.score} pts`;
     }
 
-    // Hero banner video crossfade playlist
-    const heroVideos = [
-      document.getElementById('hero-video-1'),
-      document.getElementById('hero-video-2'),
-      document.getElementById('hero-video-3'),
-      document.getElementById('hero-video-4')
-    ];
-    let currentHeroIdx = 0;
+    // Hero banner video crossfade — two-element ping-pong pattern
+    // Browsers suspend decoding for opacity:0 videos, so we use only 2 elements
+    // and swap the src on the hidden one, wait for it to buffer, then crossfade.
+    (function initHeroPlaylist() {
+      const sources = [
+        'assets/videos/hero_dog.mp4',
+        'assets/videos/hero_cat.mp4',
+        'assets/videos/hero_bunny.mp4',
+        'assets/videos/hero_bird.mp4'
+      ];
+      const vidA = document.getElementById('hero-vid-a');
+      const vidB = document.getElementById('hero-vid-b');
+      if (!vidA || !vidB) return;
 
-    // Initialize initial video layers styles to ensure clean z-index stacking and explicit muting
-    heroVideos.forEach((v, idx) => {
-      if (v) {
-        v.muted = true; // explicitly force mute in JS to bypass browser play blocks
-        v.style.opacity = idx === 0 ? '1' : '0';
-        v.style.zIndex = idx === 0 ? '2' : '1';
-        // Start playing all of them in parallel so they are always ready and buffered
-        v.play().catch(() => {});
+      let srcIdx = 0;          // index of currently showing source
+      let front = vidA;        // the video currently visible
+      let back  = vidB;        // the video currently hidden
+
+      function crossfade() {
+        // Pick the next source
+        srcIdx = (srcIdx + 1) % sources.length;
+
+        // Load next source into the hidden (back) video
+        back.src = sources[srcIdx];
+        back.muted = true;
+        back.load();
+
+        // When buffered enough, start playing it and crossfade
+        back.oncanplay = function() {
+          back.oncanplay = null; // fire once
+          back.play().catch(() => {});
+
+          // Crossfade: bring back to front
+          back.style.opacity = '1';
+          back.style.zIndex  = '2';
+          front.style.opacity = '0';
+          front.style.zIndex  = '1';
+
+          // After transition finishes, pause the old video and swap roles
+          setTimeout(function() {
+            front.pause();
+            var temp = front;
+            front = back;
+            back = temp;
+          }, 1600);
+        };
       }
-    });
 
-    function cycleHeroVideos() {
-      const currentVideo = heroVideos[currentHeroIdx];
-      currentHeroIdx = (currentHeroIdx + 1) % heroVideos.length;
-      const nextVideo = heroVideos[currentHeroIdx];
-
-      if (!currentVideo || !nextVideo) return;
-
-      // Ensure next video is playing in case it was interrupted
-      nextVideo.muted = true;
-      nextVideo.play().catch(() => {});
-
-      // Layer the incoming video on top and fade it in
-      nextVideo.style.zIndex = '2';
-      nextVideo.style.opacity = '1';
-
-      // Layer the outgoing video on bottom and fade it out
-      currentVideo.style.zIndex = '1';
-      currentVideo.style.opacity = '0';
-    }
-
-    // Transition videos every 7 seconds
-    setInterval(cycleHeroVideos, 7000);
+      // Cycle every 7 seconds
+      setInterval(crossfade, 7000);
+    })();
   </script>
   <style>
     @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
