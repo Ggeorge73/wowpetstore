@@ -17,8 +17,9 @@
   <!-- ======== HERO ======== -->
   <section class="hero" id="hero">
     <div class="hero-bg" style="position: absolute; inset: 0; overflow: hidden;">
-      <video id="hero-vid-a" autoplay muted loop playsinline preload="auto" poster="assets/images/hero.jpg" src="assets/videos/hero_dog.mp4" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.5s ease;opacity:1;z-index:2;"></video>
-      <video id="hero-vid-b" muted loop playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.5s ease;opacity:0;z-index:1;"></video>
+      <!-- Video B sits below; Video A sits on top. Both always opacity:1 so browser never suspends decoding. -->
+      <video id="hero-vid-b" muted loop playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;z-index:1;"></video>
+      <video id="hero-vid-a" autoplay muted loop playsinline preload="auto" poster="assets/images/hero.jpg" src="assets/videos/hero_dog.mp4" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;z-index:2;"></video>
     </div>
     <div class="hero-overlay"></div>
     <div class="container">
@@ -310,56 +311,117 @@
       ghsEl.textContent = `&#x1F3C6; High Score: ${ghs.score} pts`;
     }
 
-    // Hero banner video crossfade — two-element ping-pong pattern
-    // Browsers suspend decoding for opacity:0 videos, so we use only 2 elements
-    // and swap the src on the hidden one, wait for it to buffer, then crossfade.
-    (function initHeroPlaylist() {
-      const sources = [
+    // ===== Hero video crossfade — bulletproof approach =====
+    // STRATEGY: Both videos always visible (opacity:1) so browser always decodes them.
+    // Video A starts on top (z-index:2) playing dog. Video B sits behind (z-index:1).
+    // To crossfade:
+    //   1. Load next source into B (which is behind A, so invisible to user).
+    //   2. Wait for B to be ready + playing.
+    //   3. Fade A's opacity to 0, revealing B underneath.
+    //   4. After fade completes: swap layers — B goes on top, A goes behind,
+    //      reset A opacity to 1, load NEXT source into A (now behind).
+    //   5. Repeat forever.
+    (function() {
+      var sources = [
         'assets/videos/hero_dog.mp4',
         'assets/videos/hero_cat.mp4',
         'assets/videos/hero_bunny.mp4',
         'assets/videos/hero_bird.mp4'
       ];
-      const vidA = document.getElementById('hero-vid-a');
-      const vidB = document.getElementById('hero-vid-b');
+      var vidA = document.getElementById('hero-vid-a');
+      var vidB = document.getElementById('hero-vid-b');
       if (!vidA || !vidB) return;
 
-      let srcIdx = 0;          // index of currently showing source
-      let front = vidA;        // the video currently visible
-      let back  = vidB;        // the video currently hidden
+      var srcIdx = 0;     // currently showing dog (index 0)
+      var top = vidA;      // the video element currently on top
+      var bottom = vidB;   // the video element currently behind
+      var transitioning = false;
 
-      function crossfade() {
-        // Pick the next source
-        srcIdx = (srcIdx + 1) % sources.length;
-
-        // Load next source into the hidden (back) video
-        back.src = sources[srcIdx];
-        back.muted = true;
-        back.load();
-
-        // When buffered enough, start playing it and crossfade
-        back.oncanplay = function() {
-          back.oncanplay = null; // fire once
-          back.play().catch(() => {});
-
-          // Crossfade: bring back to front
-          back.style.opacity = '1';
-          back.style.zIndex  = '2';
-          front.style.opacity = '0';
-          front.style.zIndex  = '1';
-
-          // After transition finishes, pause the old video and swap roles
-          setTimeout(function() {
-            front.pause();
-            var temp = front;
-            front = back;
-            back = temp;
-          }, 1600);
-        };
+      // Add transition CSS only when we need it
+      function addFadeTransition(el) {
+        el.style.transition = 'opacity 1.5s ease';
+      }
+      function removeFadeTransition(el) {
+        el.style.transition = 'none';
       }
 
-      // Cycle every 7 seconds
-      setInterval(crossfade, 7000);
+      console.log('[HeroVideo] Initialized. Starting with:', sources[srcIdx]);
+
+      function doNextCrossfade() {
+        if (transitioning) return;
+        transitioning = true;
+
+        // 1. Pick next source
+        srcIdx = (srcIdx + 1) % sources.length;
+        var nextSrc = sources[srcIdx];
+        console.log('[HeroVideo] Loading next:', nextSrc);
+
+        // 2. Load it into the BOTTOM video (hidden behind top)
+        bottom.muted = true;
+        bottom.src = nextSrc;
+        bottom.load();
+
+        // 3. Wait for it to be ready
+        function onReady() {
+          console.log('[HeroVideo] Bottom ready, playing and crossfading');
+          bottom.play().catch(function(){});
+
+          // 4. Fade the TOP video out to reveal BOTTOM
+          addFadeTransition(top);
+          top.style.opacity = '0';
+
+          // 5. After fade completes, swap layers
+          function afterFade() {
+            console.log('[HeroVideo] Fade complete, swapping layers');
+            // Pause old top video
+            top.pause();
+
+            // Reset old top: make it opaque again (it's now behind, invisible to user)
+            removeFadeTransition(top);
+            top.style.opacity = '1';
+            top.style.zIndex = '1';
+
+            // Promote bottom to top
+            bottom.style.zIndex = '2';
+
+            // Swap references
+            var tmp = top;
+            top = bottom;
+            bottom = tmp;
+
+            transitioning = false;
+          }
+
+          // Use transitionend with a safety timeout
+          var faded = false;
+          top.addEventListener('transitionend', function handler() {
+            top.removeEventListener('transitionend', handler);
+            if (!faded) { faded = true; afterFade(); }
+          });
+          // Safety: if transitionend never fires, force after 2s
+          setTimeout(function() {
+            if (!faded) { faded = true; afterFade(); }
+          }, 2000);
+        }
+
+        // Use canplaythrough with a timeout fallback
+        var ready = false;
+        bottom.addEventListener('canplaythrough', function handler() {
+          bottom.removeEventListener('canplaythrough', handler);
+          if (!ready) { ready = true; onReady(); }
+        });
+        // Fallback: if canplaythrough never fires within 3s, proceed anyway
+        setTimeout(function() {
+          if (!ready) {
+            console.log('[HeroVideo] canplaythrough timeout, forcing crossfade');
+            ready = true;
+            onReady();
+          }
+        }, 3000);
+      }
+
+      // Start the cycle: crossfade every 7 seconds
+      setInterval(doNextCrossfade, 7000);
     })();
   </script>
   <style>
