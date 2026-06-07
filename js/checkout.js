@@ -6,70 +6,120 @@ const CheckoutPage = (() => {
   let currentStep = 0;
   const totalSteps = 4;
 
+  let originalFormHtml = '';
+  let guestMode = false;
+
   function init() {
     if (WowStore.getCartCount() === 0) {
       window.location.href = 'cart.html';
       return;
     }
 
-    const user = typeof WowFirebase !== 'undefined' ? WowFirebase.getCurrentUser() : null;
-    if (!user) {
+    if (!originalFormHtml) {
+      originalFormHtml = document.getElementById('checkout-steps').innerHTML;
+    }
+
+    // Show loading state while Firebase Auth initializes
+    document.getElementById('checkout-steps').innerHTML = `
+      <div class="empty-state" style="padding: var(--space-8); text-align: center;">
+        <div class="auth-loading-spinner" style="margin: 0 auto var(--space-4) auto; width: 40px; height: 40px; border-width: 4px;"></div>
+        <h3 style="font-size: var(--fs-lg); margin-bottom: var(--space-2);">Loading Checkout...</h3>
+        <p class="text-muted" style="font-size: var(--fs-sm);">Verifying your secure session...</p>
+      </div>
+    `;
+    document.getElementById('progress-steps').style.display = 'none';
+
+    let checkAttempts = 0;
+    const maxAttempts = 30; // 3 seconds max
+
+    const checkAuth = setInterval(() => {
+      checkAttempts++;
+      const firebaseLoaded = typeof WowFirebase !== 'undefined';
+      if (firebaseLoaded) {
+        clearInterval(checkAuth);
+        WowFirebase.onAuthStateChanged((user) => {
+          handleAuthState(user);
+        });
+      } else if (checkAttempts >= maxAttempts) {
+        clearInterval(checkAuth);
+        handleAuthState(null);
+      }
+    }, 100);
+  }
+
+  function handleAuthState(user) {
+    if (user || guestMode) {
+      document.getElementById('checkout-steps').innerHTML = originalFormHtml;
+      document.getElementById('progress-steps').style.display = 'flex';
+      
+      const emailField = document.getElementById('email');
+      if (emailField && user) emailField.value = user.email || '';
+
+      // Set visibility of step forms
+      const steps = document.querySelectorAll('.checkout-step');
+      steps.forEach((s, idx) => {
+        s.style.display = idx === currentStep ? 'block' : 'none';
+      });
+
+      // Pre-fill profile info if exists
+      try {
+        const profile = JSON.parse(localStorage.getItem('wow_profile_info'));
+        if (profile) {
+          if (profile.name) {
+            const names = profile.name.split(' ');
+            const fName = document.getElementById('firstName');
+            const lName = document.getElementById('lastName');
+            if (fName) fName.value = names[0] || '';
+            if (lName) lName.value = names.slice(1).join(' ') || '';
+          }
+          if (profile.phone) {
+            const phField = document.getElementById('phone');
+            if (phField) phField.value = profile.phone;
+          }
+          if (profile.address) {
+            const addrField = document.getElementById('address');
+            if (addrField) addrField.value = profile.address;
+          }
+          if (profile.city) {
+            const cityField = document.getElementById('city');
+            if (cityField) cityField.value = profile.city;
+          }
+          if (profile.state) {
+            const stateField = document.getElementById('state');
+            if (stateField) stateField.value = profile.state;
+          }
+          if (profile.zip) {
+            const zipField = document.getElementById('zip');
+            if (zipField) zipField.value = profile.zip;
+          }
+        }
+      } catch (e) {}
+
+      renderSummary();
+      formatCardInput();
+    } else {
       document.getElementById('progress-steps').style.display = 'none';
       document.getElementById('checkout-steps').innerHTML = `
         <div class="empty-state" style="padding: var(--space-8); text-align: center; background: var(--glass-bg); border-radius: var(--radius-xl); border: 1px solid var(--glass-border); box-shadow: var(--shadow-lg);">
           <div class="empty-state-icon" style="font-size: 48px; margin-bottom: var(--space-4);">🔒</div>
-          <h3 style="font-size: var(--fs-xl); margin-bottom: var(--space-2); font-weight: var(--fw-bold);">Sign In to Checkout</h3>
-          <p class="text-muted mb-6" style="font-size: var(--fs-sm); line-height: var(--lh-relaxed);">Please sign in or create an account to complete your checkout. We will save your shipping details and link loyalty points directly to your profile.</p>
-          <button class="btn btn-primary btn-lg" onclick="WowApp.showAuthModal()" style="width: 100%; font-family: var(--font-accent); font-weight: var(--fw-bold);">Sign In / Create Account</button>
+          <h3 style="font-size: var(--fs-xl); margin-bottom: var(--space-2); font-weight: var(--fw-bold);">Secure Checkout</h3>
+          <p class="text-muted mb-6" style="font-size: var(--fs-sm); line-height: var(--lh-relaxed);">Please sign in or create an account to earn 4x loyalty points. Alternatively, you can complete your purchase as a guest.</p>
+          <div class="flex flex-col gap-3" style="width: 100%; max-width: 320px; margin: 0 auto;">
+            <button class="btn btn-primary btn-lg" onclick="WowApp.showAuthModal()" style="width: 100%; font-family: var(--font-accent); font-weight: var(--fw-bold);">Sign In / Create Account</button>
+            <button class="btn btn-outline btn-lg" onclick="CheckoutPage.continueAsGuest()" style="width: 100%; font-family: var(--font-accent); font-weight: var(--fw-bold); margin-top: 10px;">Continue as Guest</button>
+          </div>
         </div>
       `;
       // Reload on successful sign in
       window.addEventListener('userLoggedIn', () => {
         window.location.reload();
       }, { once: true });
-      return;
     }
+  }
 
-    // Pre-fill profile info if exists
-    document.getElementById('progress-steps').style.display = 'flex';
-    const emailField = document.getElementById('email');
-    if (emailField) emailField.value = user.email || '';
-
-    try {
-      const profile = JSON.parse(localStorage.getItem('wow_profile_info'));
-      if (profile) {
-        if (profile.name) {
-          const names = profile.name.split(' ');
-          const fName = document.getElementById('firstName');
-          const lName = document.getElementById('lastName');
-          if (fName) fName.value = names[0] || '';
-          if (lName) lName.value = names.slice(1).join(' ') || '';
-        }
-        if (profile.phone) {
-          const phField = document.getElementById('phone');
-          if (phField) phField.value = profile.phone;
-        }
-        if (profile.address) {
-          const addrField = document.getElementById('address');
-          if (addrField) addrField.value = profile.address;
-        }
-        if (profile.city) {
-          const cityField = document.getElementById('city');
-          if (cityField) cityField.value = profile.city;
-        }
-        if (profile.state) {
-          const stateField = document.getElementById('state');
-          if (stateField) stateField.value = profile.state;
-        }
-        if (profile.zip) {
-          const zipField = document.getElementById('zip');
-          if (zipField) zipField.value = profile.zip;
-        }
-      }
-    } catch (e) {}
-
-    renderSummary();
-    formatCardInput();
+  function continueAsGuest() {
+    guestMode = true;
+    handleAuthState(null);
   }
 
   function renderSummary() {
@@ -390,5 +440,6 @@ const CheckoutPage = (() => {
     }
   }
 
-  return { init, nextStep, prevStep, placeOrder };
+  return { init, nextStep, prevStep, placeOrder, continueAsGuest };
 })();
+
