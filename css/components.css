@@ -1444,10 +1444,12 @@ html {
   transition: background-color 0.35s ease, color 0.35s ease;
 }
 
-*, *::before, *::after {
-  transition-property: background-color, border-color, color, box-shadow;
-  transition-duration: 0.25s;
-  transition-timing-function: ease;
+/* Targeted transitions instead of wildcard '*' performance killer */
+.navbar, .modal, .card, .btn, .input, .select, .textarea, a, .mobile-menu, .nav-action-btn, .product-card, .category-card, .product-card-quick, .product-card-quickview {
+  transition: background-color var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
 }
 
 /* Override to prevent transition on transforms/layout (perf) */
@@ -1570,5 +1572,10 @@ html {
 [data-theme="dark"] #social-proof-feed > div {
   background: rgba(30,30,30,0.95) !important;
   border-color: var(--color-dark-border) !important;
+}
+
+/* Fix mobile menu scrolled gap */
+.navbar.scrolled + .mobile-menu {
+  top: var(--nav-height);
 }
 

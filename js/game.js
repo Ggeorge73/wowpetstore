@@ -229,7 +229,16 @@ const PetGame = (() => {
     WowAnimations.counterUp(scoreEl, score, 1500);
 
     // Reward
-    document.getElementById('reward-points').textContent = `+${points} Loyalty Points`;
+    const today = new Date().toISOString().split('T')[0];
+    const lastEarned = localStorage.getItem('wow_game_last_earned');
+    const pointsAlreadyEarned = (lastEarned === today);
+
+    if (pointsAlreadyEarned) {
+      document.getElementById('reward-points').textContent = `+0 Loyalty Points (Daily limit reached)`;
+    } else {
+      document.getElementById('reward-points').textContent = `+${points} Loyalty Points`;
+    }
+
     const codeContainer = document.getElementById('reward-code-container');
     if (code) {
       codeContainer.innerHTML = `<p style="font-size: var(--fs-sm); color: rgba(255,255,255,0.5); margin: var(--space-3) 0;">+ Promo Code:</p>
@@ -240,7 +249,10 @@ const PetGame = (() => {
     }
 
     // Save rewards
-    WowStore.addLoyaltyPoints(points, `Pet Nutrition IQ — ${rank}`);
+    if (!pointsAlreadyEarned) {
+      WowStore.addLoyaltyPoints(points, `Pet Nutrition IQ — ${rank}`);
+      localStorage.setItem('wow_game_last_earned', today);
+    }
     WowStore.setGameHighScore(score, correctCount);
 
     // Confetti on perfect score

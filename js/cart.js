@@ -65,23 +65,18 @@ const CartPage = (() => {
 
   function renderSummary() {
     const totals = WowStore.getCartTotal();
-    let promoDiscount = 0;
+    const activeCode = localStorage.getItem('wow_applied_promo');
+    const appliedPromo = activeCode ? WowStore.validatePromo(activeCode) : null;
     let promoHtml = '';
 
-    if (appliedPromo) {
-      if (appliedPromo.type === 'percent') {
-        promoDiscount = totals.subtotal * appliedPromo.discount;
-      } else {
-        promoDiscount = appliedPromo.discount;
-      }
+    if (appliedPromo && totals.promoDiscount > 0) {
       promoHtml = `<div class="summary-row savings">
         <span>${appliedPromo.description}</span>
-        <span>-${WowStore.formatPrice(promoDiscount)}</span>
+        <span>-${WowStore.formatPrice(totals.promoDiscount)}</span>
       </div>`;
     }
 
-    const finalTotal = totals.total - promoDiscount;
-    const pointsEarned = Math.floor(finalTotal * 4);
+    const pointsEarned = Math.floor(totals.total * 4);
 
     document.getElementById('order-summary').innerHTML = `
       <h3>Order Summary</h3>
@@ -104,11 +99,11 @@ const CartPage = (() => {
       </div>
       <div class="summary-row total">
         <span>Total</span>
-        <span>${WowStore.formatPrice(finalTotal)}</span>
+        <span>${WowStore.formatPrice(totals.total)}</span>
       </div>
 
       <div class="promo-code">
-        <input type="text" id="promo-input" placeholder="Promo code" value="${appliedPromo ? '' : ''}">
+        <input type="text" id="promo-input" placeholder="Promo code" value="${activeCode || ''}">
         <button onclick="CartPage.applyPromo()">Apply</button>
       </div>
       ${appliedPromo ? `<div style="font-size: var(--fs-xs); color: var(--color-secondary); margin-bottom: var(--space-4);">✓ Code applied: ${appliedPromo.description}</div>` : ''}
@@ -140,7 +135,6 @@ const CartPage = (() => {
     if (!code) return;
     const promo = WowStore.validatePromo(code);
     if (promo) {
-      appliedPromo = promo;
       WowApp.showToast(`Promo code applied: ${promo.description}`, '🎉');
       renderSummary();
     } else {

@@ -7,11 +7,36 @@ const ProductPage = (() => {
   let isSubscribe = false;
   let frequency = '4weeks';
   let qty = 1;
+  let autoOpenReviewForm = false;
 
-  function init() {
+  async function init() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     product = WowStore.getProduct(id);
+
+    if (product && typeof WowFirebase !== 'undefined') {
+      try {
+        const cloudReviews = await WowFirebase.fetchReviews(product.id);
+        let custom = [];
+        try {
+          custom = JSON.parse(localStorage.getItem('wow_custom_reviews')) || [];
+        } catch (e) {
+          custom = [];
+        }
+        let updated = false;
+        cloudReviews.forEach(r => {
+          if (!custom.some(cr => cr.id === r.id)) {
+            custom.push(r);
+            updated = true;
+          }
+        });
+        if (updated) {
+          localStorage.setItem('wow_custom_reviews', JSON.stringify(custom));
+        }
+      } catch (err) {
+        console.error("🐾 [WowPetStore] Failed to fetch cloud reviews on init:", err);
+      }
+    }
 
     if (!product) {
       document.getElementById('product-detail').innerHTML = `
@@ -85,25 +110,7 @@ const ProductPage = (() => {
       `<span class="product-highlight"><span class="highlight-icon">${highlightIcons[tag] || '✦'}</span> ${tag.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>`
     ).join('');
 
-    const subscribeSection = product.subscribable ? `
-      <div class="subscribe-toggle" id="subscribe-toggle">
-        <div class="subscribe-toggle-options">
-          <div class="subscribe-toggle-option ${!isSubscribe ? 'active' : ''}" onclick="ProductPage.setSubscribe(false)">One-Time Purchase</div>
-          <div class="subscribe-toggle-option ${isSubscribe ? 'active' : ''}" onclick="ProductPage.setSubscribe(true)">Subscribe & Save</div>
-        </div>
-        <div id="subscribe-details" style="display: ${isSubscribe ? 'block' : 'none'};">
-          <div class="subscribe-frequency">
-            <label style="font-size: var(--fs-sm); white-space: nowrap;">Deliver every:</label>
-            <select id="frequency-select" onchange="ProductPage.setFrequency(this.value)">
-              <option value="2weeks">2 Weeks</option>
-              <option value="4weeks" selected>4 Weeks</option>
-              <option value="6weeks">6 Weeks</option>
-              <option value="8weeks">8 Weeks</option>
-            </select>
-          </div>
-          <div class="subscribe-savings">💰 You save ${WowStore.formatPrice(product.price - product.subscribePrice)} (${product.subscribeDiscount}% off) per delivery</div>
-        </div>
-      </div>` : '';
+    const subscribeSection = ''; // Handled dynamically inside Shopify Buy Button widget if configured in Shopify
 
     const videoSrc = WowStore.getProductVideo ? WowStore.getProductVideo(product) : null;
 
@@ -141,8 +148,7 @@ const ProductPage = (() => {
         </div>
 
         <div class="product-price-block" id="price-block">
-          <span class="price" id="display-price">${WowStore.formatPrice(isSubscribe && product.subscribePrice ? product.subscribePrice : product.price)}</span>
-          ${isSubscribe && product.subscribePrice ? `<span class="price-original">${WowStore.formatPrice(product.price)}</span>` : ''}
+          <span class="price" id="display-price">${WowStore.formatPrice(product.price)}</span>
           ${product.subscribable ? `<span class="badge badge-subscribe" style="font-size: var(--fs-xs);">Save ${product.subscribeDiscount}%</span>` : ''}
         </div>
 
@@ -156,16 +162,9 @@ const ProductPage = (() => {
           <span>📦</span> <span>${product.weight}</span>
         </div>
 
-        <div class="product-add-section">
-          <div class="qty-stepper">
-            <button onclick="ProductPage.changeQty(-1)">−</button>
-            <div class="qty-value" id="qty-display">${qty}</div>
-            <button onclick="ProductPage.changeQty(1)">+</button>
-          </div>
-          <button class="btn btn-primary btn-lg" onclick="ProductPage.addToCart()" id="add-to-cart-btn" style="flex: 1;">
-            Add to Cart — ${WowStore.formatPrice((isSubscribe && product.subscribePrice ? product.subscribePrice : product.price) * qty)}
-          </button>
-          <button class="product-wishlist-btn ${isWished ? 'active' : ''}" onclick="ProductPage.toggleWishlist()" id="wishlist-btn">
+        <div class="product-add-section" style="align-items: center;">
+          <div id="shopify-buy-button-container" style="flex: 1;"></div>
+          <button class="product-wishlist-btn ${isWished ? 'active' : ''}" onclick="ProductPage.toggleWishlist()" id="wishlist-btn" style="height: 52px;">
             ${isWished ? '❤️' : '🤍'}
           </button>
         </div>
@@ -176,6 +175,133 @@ const ProductPage = (() => {
           <div class="flex items-center gap-2 text-sm text-muted"><span>🔒</span> Secure checkout</div>
         </div>
       </div>`;
+
+    if (typeof ShopifyBuy !== 'undefined') {
+      initShopifyBuyButton(product.shopifyId);
+    } else {
+      console.warn("🐾 [WowPetStore] ShopifyBuy SDK not loaded.");
+    }
+  }
+
+  function initShopifyBuyButton(shopifyId) {
+    if (typeof ShopifyBuy === 'undefined') {
+      console.error('ShopifyBuy SDK not found.');
+      return;
+    }
+    const client = ShopifyBuy.buildClient({
+      domain: 'id0dxt-4y.myshopify.com',
+      storefrontAccessToken: 'f19dc13ce0feb0bbfa7c9a79ac89eef4',
+    });
+    ShopifyBuy.UI.onReady(client).then(function (ui) {
+      ui.createComponent('product', {
+        id: shopifyId,
+        node: document.getElementById('shopify-buy-button-container'),
+        moneyFormat: '%24%7B%7Bamount%7D%7D',
+        options: {
+          "product": {
+            "styles": {
+              "product": {
+                "max-width": "100%",
+                "margin-left": "0px",
+                "margin-bottom": "0px",
+                "width": "100%"
+              },
+              "button": {
+                "font-family": "'DM Sans', 'Inter', sans-serif",
+                "font-weight": "600",
+                "font-size": "15px",
+                "padding-top": "14px",
+                "padding-bottom": "14px",
+                "background-color": "#D4A853",
+                "color": "#FFFFFF",
+                "border-radius": "9999px",
+                ":hover": {
+                  "background-color": "#B8913A"
+                },
+                ":focus": {
+                  "background-color": "#B8913A"
+                }
+              },
+              "quantityInput": {
+                "border-radius": "9999px",
+                "border": "1px solid #E8E2D8",
+                "font-family": "'DM Sans', 'Inter', sans-serif",
+                "padding-top": "14px",
+                "padding-bottom": "14px",
+                "color": "#2C2C2C"
+              },
+              "select": {
+                "font-family": "'DM Sans', 'Inter', sans-serif",
+                "color": "#2C2C2C",
+                "border-color": "#E8E2D8",
+                "border-radius": "10px"
+              },
+              "label": {
+                "font-family": "'DM Sans', 'Inter', sans-serif",
+                "color": "#2C2C2C"
+              }
+            },
+            "contents": {
+              "img": false,
+              "title": false,
+              "price": false,
+              "options": true,
+              "quantityInput": true,
+              "button": true
+            },
+            "text": {
+              "button": "Add to cart"
+            }
+          },
+          "cart": {
+            "styles": {
+              "button": {
+                "font-family": "'DM Sans', 'Inter', sans-serif",
+                "font-weight": "600",
+                "background-color": "#D4A853",
+                "color": "#FFFFFF",
+                "border-radius": "9999px",
+                ":hover": {
+                  "background-color": "#B8913A"
+                },
+                ":focus": {
+                  "background-color": "#B8913A"
+                }
+              },
+              "footer": {
+                "background-color": "#FAF7F2"
+              },
+              "body": {
+                "background-color": "#FAF7F2"
+              },
+              "header": {
+                "background-color": "#FAF7F2"
+              },
+              "title": {
+                "font-family": "'Playfair Display', Georgia, serif"
+              }
+            },
+            "text": {
+              "total": "Subtotal",
+              "button": "Checkout"
+            }
+          },
+          "toggle": {
+            "styles": {
+              "toggle": {
+                "background-color": "#D4A853",
+                ":hover": {
+                  "background-color": "#B8913A"
+                },
+                ":focus": {
+                  "background-color": "#B8913A"
+                }
+              }
+            }
+          }
+        }
+      });
+    });
   }
 
   function switchImage(index) {
@@ -272,7 +398,7 @@ const ProductPage = (() => {
       `<div class="tab ${i === 0 ? 'active' : ''}" onclick="ProductPage.switchTab(${i})">${t}${t === 'Reviews' ? ` (${reviews.length})` : ''}</div>`
     ).join('');
 
-    const reviewsHtml = reviews.length ? reviews.map(r => `
+    const reviewsListHtml = reviews.length ? reviews.map(r => `
       <div style="padding: var(--space-5); background: var(--color-bg); border-radius: var(--radius-lg); margin-bottom: var(--space-3);">
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-3">
@@ -289,6 +415,73 @@ const ProductPage = (() => {
       </div>
     `).join('') : '<p class="text-muted">No reviews yet. Be the first to review this product!</p>';
 
+    const user = typeof WowFirebase !== 'undefined' ? WowFirebase.getCurrentUser() : null;
+    
+    let petOptionsHtml = '';
+    if (user) {
+      const userName = user.displayName || user.email.split('@')[0] || 'You';
+      petOptionsHtml += `<option value="self">${userName} (You)</option>`;
+      const pets = WowStore.getPets();
+      pets.forEach(pet => {
+        petOptionsHtml += `<option value="${pet.id}">${pet.name} (${pet.breed || pet.species}) ${pet.emoji || '🐾'}</option>`;
+      });
+    }
+
+    const reviewsTabHtml = `
+      <div class="flex justify-between items-center mb-6" style="padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-light);">
+        <div>
+          <h4 style="margin: 0; font-size: var(--fs-lg);">Customer Reviews</h4>
+          <div class="flex items-center gap-2 mt-1">
+            ${WowStore.renderStars(product.rating)}
+            <span class="text-sm text-muted">${product.rating} out of 5 stars (${reviews.length} reviews)</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="ProductPage.toggleReviewForm()">Write a Review</button>
+      </div>
+
+      <!-- Expandable Review Form Container -->
+      <div id="review-write-form-container" style="display: none; margin-bottom: var(--space-6); padding: var(--space-5); background: var(--color-bg-alt, rgba(255,255,255,0.03)); border-radius: var(--radius-lg); border: 1px solid var(--color-border-light);">
+        <h4 style="margin-top: 0; margin-bottom: var(--space-4);">Write a Customer Review</h4>
+        <form id="review-write-form" onsubmit="ProductPage.handleReviewSubmit(event)">
+          <!-- Star Rating Selection -->
+          <div style="margin-bottom: var(--space-4);">
+            <label style="display: block; font-size: var(--fs-sm); margin-bottom: var(--space-2); font-weight: var(--fw-semibold);">Your Rating</label>
+            <div class="interactive-stars" id="interactive-stars" style="display: flex; gap: var(--space-2); font-size: 28px; color: var(--color-text-muted); cursor: pointer;">
+              <span class="interactive-star" data-value="1" style="color: var(--color-border);">&#x2605;</span>
+              <span class="interactive-star" data-value="2" style="color: var(--color-border);">&#x2605;</span>
+              <span class="interactive-star" data-value="3" style="color: var(--color-border);">&#x2605;</span>
+              <span class="interactive-star" data-value="4" style="color: var(--color-border);">&#x2605;</span>
+              <span class="interactive-star" data-value="5" style="color: var(--color-border);">&#x2605;</span>
+            </div>
+            <input type="hidden" id="review-rating-value" name="rating" value="0" required>
+          </div>
+
+          <!-- Review Text -->
+          <div style="margin-bottom: var(--space-4);">
+            <label for="review-text-input" style="display: block; font-size: var(--fs-sm); margin-bottom: var(--space-2); font-weight: var(--fw-semibold);">Your Review</label>
+            <textarea id="review-text-input" name="text" rows="4" placeholder="What did you think of this product? What did your pet think?" style="width: 100%; padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border-light); background: rgba(0,0,0,0.2); color: var(--color-text-primary); font-family: inherit; resize: vertical;" required></textarea>
+          </div>
+
+          <!-- Post as Pet Selector -->
+          <div style="margin-bottom: var(--space-4);">
+            <label for="review-pet-select" style="display: block; font-size: var(--fs-sm); margin-bottom: var(--space-2); font-weight: var(--fw-semibold);">Post on behalf of</label>
+            <select id="review-pet-select" name="petId" style="width: 100%; padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border-light); background: rgba(0,0,0,0.2); color: var(--color-text-primary); font-family: inherit;">
+              ${petOptionsHtml}
+            </select>
+          </div>
+
+          <div style="display: flex; gap: var(--space-3);">
+            <button type="submit" class="btn btn-primary">Submit Review</button>
+            <button type="button" class="btn btn-outline" onclick="ProductPage.toggleReviewForm()">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="reviews-list-container">
+        ${reviewsListHtml}
+      </div>
+    `;
+
     document.getElementById('tab-contents').innerHTML = `
       <div class="tab-content active" id="tab-0">
         <p style="line-height: var(--lh-relaxed); color: var(--color-text-secondary);">${product.description}</p>
@@ -299,7 +492,147 @@ const ProductPage = (() => {
       <div class="tab-content" id="tab-2">
         <p style="line-height: var(--lh-relaxed); color: var(--color-text-secondary);">${product.feedingGuide || 'No feeding guide available for this product.'}</p>
       </div>
-      <div class="tab-content" id="tab-3">${reviewsHtml}</div>`;
+      <div class="tab-content" id="tab-3">${reviewsTabHtml}</div>`;
+
+    initStarRating();
+  }
+
+  function toggleReviewForm() {
+    const user = typeof WowFirebase !== 'undefined' ? WowFirebase.getCurrentUser() : null;
+    if (!user) {
+      autoOpenReviewForm = true;
+      if (typeof WowApp !== 'undefined') {
+        WowApp.showAuthModal();
+      }
+      return;
+    }
+
+    const form = document.getElementById('review-write-form-container');
+    if (form) {
+      if (form.style.display === 'none' || form.style.display === '') {
+        form.style.display = 'block';
+        form.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        form.style.display = 'none';
+      }
+    }
+  }
+
+  function initStarRating() {
+    const container = document.getElementById('interactive-stars');
+    if (!container) return;
+    const stars = container.querySelectorAll('.interactive-star');
+    const ratingInput = document.getElementById('review-rating-value');
+
+    function updateStars(val) {
+      stars.forEach(star => {
+        const starVal = parseInt(star.dataset.value);
+        if (starVal <= val) {
+          star.style.color = 'var(--color-primary)';
+        } else {
+          star.style.color = 'var(--color-border)';
+        }
+      });
+    }
+
+    stars.forEach(star => {
+      star.style.transition = 'color 0.15s ease, transform 0.1s ease';
+      star.addEventListener('mouseenter', () => {
+        updateStars(parseInt(star.dataset.value));
+        star.style.transform = 'scale(1.2)';
+      });
+      star.addEventListener('mouseleave', () => {
+        const currentRating = parseInt(ratingInput.value) || 0;
+        updateStars(currentRating);
+        star.style.transform = 'scale(1)';
+      });
+      star.addEventListener('click', () => {
+        const val = parseInt(star.dataset.value);
+        ratingInput.value = val;
+        updateStars(val);
+      });
+    });
+
+    container.addEventListener('mouseleave', () => {
+      const currentRating = parseInt(ratingInput.value) || 0;
+      updateStars(currentRating);
+    });
+
+    updateStars(0);
+  }
+
+  function handleReviewSubmit(e) {
+    e.preventDefault();
+    const ratingInput = document.getElementById('review-rating-value');
+    const ratingVal = parseInt(ratingInput.value);
+    if (!ratingVal || ratingVal < 1 || ratingVal > 5) {
+      if (typeof WowApp !== 'undefined') {
+        WowApp.showToast('Please select a star rating.', '⚠️');
+      } else {
+        alert('Please select a star rating.');
+      }
+      return;
+    }
+
+    const textInput = document.getElementById('review-text-input');
+    const text = textInput.value.trim();
+    if (!text) return;
+
+    const petSelect = document.getElementById('review-pet-select');
+    const petId = petSelect.value;
+
+    const user = typeof WowFirebase !== 'undefined' ? WowFirebase.getCurrentUser() : null;
+    const authorName = user ? (user.displayName || user.email.split('@')[0]) : 'Anonymous';
+
+    let avatar = '👤';
+    let petSubtitle = 'Verified Buyer';
+
+    if (petId !== 'self') {
+      const pets = WowStore.getPets();
+      const selectedPet = pets.find(p => p.id == petId);
+      if (selectedPet) {
+        avatar = selectedPet.emoji || '🐾';
+        petSubtitle = `Reviewed by ${selectedPet.name} — ${selectedPet.breed || selectedPet.species} ${selectedPet.emoji || ''}`;
+      }
+    }
+
+    const review = {
+      id: Date.now(),
+      productId: product.id,
+      author: authorName,
+      rating: ratingVal,
+      text: text,
+      pet: petSubtitle,
+      date: new Date().toISOString().split('T')[0],
+      avatar: avatar
+    };
+
+    WowStore.addReview(product.id, review);
+
+    if (typeof WowApp !== 'undefined') {
+      WowApp.showToast('Review submitted successfully!', '✨');
+      if (typeof WowAnimations !== 'undefined' && WowAnimations.confetti) {
+        WowAnimations.confetti();
+      }
+    }
+
+    // Reset and close
+    document.getElementById('review-write-form').reset();
+    ratingInput.value = '0';
+    const starsContainer = document.getElementById('interactive-stars');
+    if (starsContainer) {
+      starsContainer.querySelectorAll('.interactive-star').forEach(star => {
+        star.style.color = 'var(--color-border)';
+      });
+    }
+    
+    const formContainer = document.getElementById('review-write-form-container');
+    if (formContainer) {
+      formContainer.style.display = 'none';
+    }
+
+    renderTabs();
+    switchTab(3);
   }
 
   function switchTab(index) {
@@ -326,7 +659,7 @@ const ProductPage = (() => {
               </div>
               <div class="fbt-item-name">${p.name}</div>
             </div>
-          `).join('')}}
+          `).join('')}
         </div>
         <div class="fbt-total">
           <div>
@@ -350,5 +683,40 @@ const ProductPage = (() => {
     document.getElementById('related-products').innerHTML = related.map(p => WowApp.renderProductCard(p)).join('');
   }
 
-  return { init, switchImage, setSubscribe, setFrequency, changeQty, addToCart, toggleWishlist, switchTab, addBundle, toggleVideo };
+  // Listen for user login/logout to refresh reviews tab UI
+  window.addEventListener('userLoggedIn', () => {
+    if (product) {
+      renderTabs();
+      if (autoOpenReviewForm) {
+        switchTab(3);
+        const formContainer = document.getElementById('review-write-form-container');
+        if (formContainer) {
+          formContainer.style.display = 'block';
+          formContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+        autoOpenReviewForm = false;
+      }
+    }
+  });
+
+  window.addEventListener('userLoggedOut', () => {
+    if (product) {
+      renderTabs();
+    }
+  });
+
+  return { 
+    init, 
+    switchImage, 
+    setSubscribe, 
+    setFrequency, 
+    changeQty, 
+    addToCart, 
+    toggleWishlist, 
+    switchTab, 
+    addBundle, 
+    toggleVideo,
+    toggleReviewForm,
+    handleReviewSubmit
+  };
 })();

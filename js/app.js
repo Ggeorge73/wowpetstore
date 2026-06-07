@@ -230,6 +230,7 @@ const WowApp = (() => {
         </a>
         <div class="nav-links">
           <a href="shop.html" class="nav-link ${activePage === 'shop' ? 'active' : ''}">Shop</a>
+          <a href="check.html" class="nav-link ${activePage === 'check' ? 'active' : ''}">🩺 Pet-Check AI</a>
           <a href="journey.html" class="nav-link ${activePage === 'journey' ? 'active' : ''}">🪐 Journey</a>
           <a href="game.html" class="nav-link ${activePage === 'game' ? 'active' : ''}">🧠 Play & Learn</a>
           <a href="subscribe.html" class="nav-link ${activePage === 'subscribe' ? 'active' : ''}">Subscribe & Save</a>
@@ -265,6 +266,7 @@ const WowApp = (() => {
       <a href="shop.html?pet=cat" class="mobile-nav-link"><span class="link-icon">🐈</span> Cats</a>
       <a href="shop.html?pet=small-pet" class="mobile-nav-link"><span class="link-icon">🐹</span> Small Pets</a>
       <a href="shop.html?pet=bird" class="mobile-nav-link"><span class="link-icon">🦜</span> Birds</a>
+      <a href="check.html" class="mobile-nav-link"><span class="link-icon">🩺</span> Pet-Check AI</a>
       <a href="journey.html" class="mobile-nav-link"><span class="link-icon">🪐</span> Solar Journey</a>
       <a href="game.html" class="mobile-nav-link"><span class="link-icon">🧠</span> Play & Learn</a>
       <a href="subscribe.html" class="mobile-nav-link"><span class="link-icon">🔄</span> Subscribe & Save</a>
@@ -399,22 +401,37 @@ const WowApp = (() => {
   }
 
   // ---- Script Loader Helpers ----
-  function loadScript(src) {
+  function loadScript(src, timeoutMs = 8000) {
     return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) {
+      const baseSrc = src.startsWith('/') ? src.substring(1) : src;
+      if (document.querySelector(`script[src="${src}"], script[src="${baseSrc}"], script[src="/${baseSrc}"]`)) {
         resolve();
         return;
       }
       const s = document.createElement('script');
       s.src = src;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      
+      const timer = setTimeout(() => {
+        s.onload = s.onerror = null;
+        s.remove();
+        reject(new Error(`Script load timeout: ${src}`));
+      }, timeoutMs);
+
+      s.onload = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      s.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error(`Failed to load script: ${src}`));
+      };
       document.body.appendChild(s);
     });
   }
 
   function loadStyle(href) {
-    if (document.querySelector(`link[href="${href}"]`)) return;
+    const baseHref = href.startsWith('/') ? href.substring(1) : href;
+    if (document.querySelector(`link[href="${href}"], link[href="${baseHref}"], link[href="/${baseHref}"]`)) return;
     const l = document.createElement('link');
     l.rel = 'stylesheet';
     l.href = href;
@@ -422,21 +439,153 @@ const WowApp = (() => {
   }
 
   async function loadFirebaseAssets() {
-    loadStyle("css/auth-modal.css");
+    loadStyle("/css/auth-modal.css");
+    injectAuthModal(); // Inject auth modal synchronously before scripts load!
+    
     try {
       await loadScript("https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js");
       await Promise.all([
         loadScript("https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"),
         loadScript("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js")
       ]);
-      await loadScript("js/firebase-db.js");
+      await loadScript("/js/firebase-db.js");
       
       WowFirebase.init();
-      injectAuthModal();
       setupAuthListeners();
     } catch (err) {
-      console.error("🐾 [WowPetStore] Failed to load Firebase assets:", err);
+      console.warn("🐾 [WowPetStore] Failed to load Firebase assets, setting up fallback mock auth service:", err);
+      setupMockAuthService();
     }
+  }
+
+  function setupMockAuthService() {
+    window.WowFirebase = (() => {
+      let authCallback = null;
+      let mockUser = null;
+      
+      try {
+        const savedUser = localStorage.getItem('wow_mock_auth_user');
+        if (savedUser) {
+          mockUser = JSON.parse(savedUser);
+        }
+      } catch (e) {}
+
+      function triggerAuthChange() {
+        if (authCallback) authCallback(mockUser);
+        window.dispatchEvent(new CustomEvent(mockUser ? 'userLoggedIn' : 'userLoggedOut'));
+      }
+
+      setTimeout(() => {
+        triggerAuthChange();
+      }, 100);
+
+      return {
+        init: () => {},
+        signInWithEmail: (email, password) => {
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              if (email && password) {
+                const name = email.split('@')[0];
+                mockUser = {
+                  uid: 'mock_uid_' + Math.random().toString(36).substring(2, 9),
+                  email: email,
+                  displayName: name.charAt(0).toUpperCase() + name.slice(1)
+                };
+                localStorage.setItem('wow_mock_auth_user', JSON.stringify(mockUser));
+                triggerAuthChange();
+                resolve({ user: mockUser });
+              } else {
+                reject(new Error("Invalid email or password."));
+              }
+            }, 600);
+          });
+        },
+        signUpWithEmail: (email, password, name) => {
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              if (email && password && name) {
+                mockUser = {
+                  uid: 'mock_uid_' + Math.random().toString(36).substring(2, 9),
+                  email: email,
+                  displayName: name
+                };
+                localStorage.setItem('wow_mock_auth_user', JSON.stringify(mockUser));
+                triggerAuthChange();
+                resolve({ user: mockUser });
+              } else {
+                reject(new Error("Please fill out all fields."));
+              }
+            }, 600);
+          });
+        },
+        sendPasswordReset: (email) => {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resolve();
+            }, 500);
+          });
+        },
+        signInWithGoogle: () => {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              mockUser = {
+                uid: 'mock_google_' + Math.random().toString(36).substring(2, 9),
+                email: 'google.parent@gmail.com',
+                displayName: 'Google Pet Parent'
+              };
+              localStorage.setItem('wow_mock_auth_user', JSON.stringify(mockUser));
+              triggerAuthChange();
+              resolve({ user: mockUser });
+            }, 500);
+          });
+        },
+        signInWithFacebook: () => {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              mockUser = {
+                uid: 'mock_fb_' + Math.random().toString(36).substring(2, 9),
+                email: 'fb.parent@facebook.com',
+                displayName: 'FB Pet Parent'
+              };
+              localStorage.setItem('wow_mock_auth_user', JSON.stringify(mockUser));
+              triggerAuthChange();
+              resolve({ user: mockUser });
+            }, 500);
+          });
+        },
+        signInWithApple: () => {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              mockUser = {
+                uid: 'mock_apple_' + Math.random().toString(36).substring(2, 9),
+                email: 'apple.parent@apple.com',
+                displayName: 'Apple Pet Parent'
+              };
+              localStorage.setItem('wow_mock_auth_user', JSON.stringify(mockUser));
+              triggerAuthChange();
+              resolve({ user: mockUser });
+            }, 500);
+          });
+        },
+        logout: () => {
+          mockUser = null;
+          localStorage.removeItem('wow_mock_auth_user');
+          triggerAuthChange();
+          return Promise.resolve();
+        },
+        onAuthStateChanged: (callback) => {
+          authCallback = callback;
+          callback(mockUser);
+        },
+        isMockMode: () => true,
+        syncUserData: () => Promise.resolve(),
+        syncMockDataLocally: () => {},
+        writeOrderToRootDb: () => Promise.resolve(),
+        writeReview: () => Promise.resolve(),
+        fetchReviews: () => Promise.resolve([])
+      };
+    })();
+    setupAuthListeners();
   }
 
   function injectAuthModal() {

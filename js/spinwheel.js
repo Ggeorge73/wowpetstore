@@ -216,7 +216,7 @@ const WowSpinWheel = (() => {
     if (winner.code) {
       localStorage.setItem('wow_spin_code', winner.code);
     }
-    localStorage.setItem('wow_spin_done', 'true');
+    sessionStorage.setItem('wow_spin_done', 'true');
 
     // Confetti!
     if (typeof WowAnimations !== 'undefined' && WowAnimations.confetti) {
@@ -252,12 +252,12 @@ const WowSpinWheel = (() => {
     if (!overlay) return;
     overlay.style.opacity = '0';
     setTimeout(() => overlay.remove(), 400);
-    localStorage.setItem('wow_spin_done', 'true');
+    sessionStorage.setItem('wow_spin_done', 'true');
   }
 
   function init() {
     // Only show once per session, not on checkout/cart
-    const done = localStorage.getItem('wow_spin_done');
+    const done = sessionStorage.getItem('wow_spin_done');
     const onCheckout = window.location.href.includes('checkout') || window.location.href.includes('cart');
     if (done || onCheckout) return;
 

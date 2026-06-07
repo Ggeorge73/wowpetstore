@@ -102,7 +102,8 @@ const CheckoutPage = (() => {
       <div style="border-top: 1px solid var(--color-border-light); padding-top: var(--space-4);">
         <div class="summary-row"><span>Subtotal</span><span>${WowStore.formatPrice(totals.subtotal)}</span></div>
         ${totals.savings > 0 ? `<div class="summary-row savings"><span>Savings</span><span>-${WowStore.formatPrice(totals.savings)}</span></div>` : ''}
-        <div class="summary-row"><span>Shipping</span><span>${totals.shipping === 0 ? '<span style="color: var(--color-secondary);">FREE</span>' : WowStore.formatPrice(totals.shipping)}</span></div>
+        ${totals.promoDiscount > 0 ? `<div class="summary-row savings" style="color: var(--color-success); font-weight: var(--fw-semibold);"><span>Discount</span><span>-${WowStore.formatPrice(totals.promoDiscount)}</span></div>` : ''}
+        <div class="summary-row"><span>Shipping</span><span>${totals.shipping === 0 ? '<span style="color: var(--color-secondary); font-weight: var(--fw-semibold);">FREE</span>' : WowStore.formatPrice(totals.shipping)}</span></div>
         <div class="summary-row"><span>Tax</span><span>${WowStore.formatPrice(totals.tax)}</span></div>
         <div class="summary-row total"><span>Total</span><span>${WowStore.formatPrice(totals.total)}</span></div>
       </div>
@@ -162,24 +163,93 @@ const CheckoutPage = (() => {
 
     const required = fields[step] || [];
     let valid = true;
+    let errorMessage = '';
 
     required.forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       const val = el.value.trim();
+      
+      // Basic empty check
       if (!val) {
         el.style.borderColor = 'var(--color-error)';
         el.style.boxShadow = '0 0 0 3px rgba(229, 57, 53, 0.15)';
         valid = false;
+        if (!errorMessage) errorMessage = 'Please fill in all required fields';
         el.addEventListener('input', () => {
           el.style.borderColor = '';
           el.style.boxShadow = '';
+        }, { once: true });
+        return;
+      }
+
+      // Format validations
+      if (id === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(val)) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter a valid email address';
+        }
+      } else if (id === 'phone') {
+        const digits = val.replace(/\D/g, '');
+        if (digits.length < 10) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter a valid 10-digit phone number';
+        }
+      } else if (id === 'zip') {
+        const zipRegex = /^\d{5}(-\d{4})?$/;
+        if (!zipRegex.test(val) && val.length < 3) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter a valid ZIP code';
+        }
+      } else if (id === 'cardNumber') {
+        const cardDigits = val.replace(/\D/g, '');
+        if (cardDigits.length < 13 || cardDigits.length > 19) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter a valid credit card number';
+        }
+      } else if (id === 'expiry') {
+        const expiryRegex = /^(0[1-9]|1[0-2])\/?([0-9]{2})$/;
+        if (!expiryRegex.test(val)) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter card expiry as MM/YY';
+        } else {
+          // Verify future date
+          const match = val.match(expiryRegex);
+          const month = parseInt(match[1]);
+          const year = parseInt('20' + match[2]);
+          const now = new Date();
+          const curMonth = now.getMonth() + 1;
+          const curYear = now.getFullYear();
+          if (year < curYear || (year === curYear && month < curMonth)) {
+            el.style.borderColor = 'var(--color-error)';
+            valid = false;
+            errorMessage = 'Credit card expiry date is in the past';
+          }
+        }
+      } else if (id === 'cvv') {
+        const cvvRegex = /^\d{3,4}$/;
+        if (!cvvRegex.test(val)) {
+          el.style.borderColor = 'var(--color-error)';
+          valid = false;
+          errorMessage = 'Please enter a valid 3 or 4 digit CVV';
+        }
+      }
+
+      if (!valid) {
+        el.addEventListener('input', () => {
+          el.style.borderColor = '';
         }, { once: true });
       }
     });
 
     if (!valid) {
-      WowApp.showToast('Please fill in all required fields', '⚠️');
+      WowApp.showToast(errorMessage, '⚠️');
     }
     return valid;
   }
@@ -208,6 +278,7 @@ const CheckoutPage = (() => {
     document.getElementById('review-totals').innerHTML = `
       <div class="summary-row"><span>Subtotal</span><span>${WowStore.formatPrice(totals.subtotal)}</span></div>
       ${totals.savings > 0 ? `<div class="summary-row savings"><span>Savings</span><span>-${WowStore.formatPrice(totals.savings)}</span></div>` : ''}
+      ${totals.promoDiscount > 0 ? `<div class="summary-row savings" style="color: var(--color-success); font-weight: var(--fw-semibold);"><span>Discount</span><span>-${WowStore.formatPrice(totals.promoDiscount)}</span></div>` : ''}
       <div class="summary-row"><span>Shipping</span><span>${totals.shipping === 0 ? 'FREE' : WowStore.formatPrice(totals.shipping)}</span></div>
       <div class="summary-row"><span>Tax</span><span>${WowStore.formatPrice(totals.tax)}</span></div>
       <div class="summary-row total"><span>Total</span><span>${WowStore.formatPrice(totals.total)}</span></div>`;

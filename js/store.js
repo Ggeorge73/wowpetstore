@@ -609,6 +609,38 @@ const WowStore = (() => {
     }
   ];
 
+  // ---- Shopify Product ID Mappings ----
+  const shopifyProductIds = {
+    1: '7989696430163',
+    2: '7989696462931',
+    3: '7989696561235',
+    4: '7989696626771',
+    5: '7989696790611',
+    6: '7989696921683',
+    7: '7989696987219',
+    8: '7989697019987',
+    9: '7989697052755',
+    10: '7989697085523',
+    11: '7989697151059',
+    12: '7989697183827',
+    13: '7989697216595',
+    14: '7989697249363',
+    15: '7989697314899',
+    16: '7989697609811',
+    17: '7989697642579',
+    18: '7989697675347',
+    19: '7989697740883',
+    20: '7989697839187',
+    21: '7989697871955',
+    22: '7989698199635',
+    23: '7989698297939',
+    24: '7989698330707'
+  };
+
+  products.forEach(p => {
+    p.shopifyId = shopifyProductIds[p.id] || '7989696430163'; // Fallback to Wilderness Salmon
+  });
+
   // ---- Product image colors (gradient placeholders) ----
   const productColors = {
     food: ['#F4A460', '#DEB887'],
@@ -754,7 +786,10 @@ const WowStore = (() => {
     "FREESHIP": { discount: 5.99, type: "fixed", description: "Free shipping" },
     "PETIQ10": { discount: 0.10, type: "percent", description: "10% off — Pet Nutrition IQ Silver" },
     "PETIQ15": { discount: 0.15, type: "percent", description: "15% off — Pet Nutrition IQ Gold" },
-    "PETIQ25": { discount: 0.25, type: "percent", description: "25% off — Pet Nutrition IQ Perfect Score" }
+    "PETIQ25": { discount: 0.25, type: "percent", description: "25% off — Pet Nutrition IQ Perfect Score" },
+    "STREAK7": { discount: 0.10, type: "percent", description: "10% off — 7-Day Streak Reward" },
+    "STREAK14": { discount: 0.15, type: "percent", description: "15% off — 14-Day Streak Reward" },
+    "STREAK30": { discount: 0.25, type: "percent", description: "25% off — 30-Day Streak Reward" }
   };
 
   // ---- Game High Score (localStorage) ----
@@ -838,7 +873,45 @@ const WowStore = (() => {
   }
 
   function getProductReviews(productId) {
-    return reviews.filter(r => r.productId === parseInt(productId));
+    const staticFiltered = reviews.filter(r => r.productId === parseInt(productId));
+    let custom = [];
+    try {
+      custom = JSON.parse(localStorage.getItem('wow_custom_reviews')) || [];
+    } catch (e) {
+      custom = [];
+    }
+    const customFiltered = custom.filter(r => r.productId === parseInt(productId));
+    
+    // Combine, avoiding duplicates by id
+    const combined = [...staticFiltered];
+    customFiltered.forEach(cRev => {
+      if (!combined.some(r => r.id === cRev.id)) {
+        combined.push(cRev);
+      }
+    });
+    
+    // Sort by date descending
+    return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }
+
+  function addReview(productId, review) {
+    let custom = [];
+    try {
+      custom = JSON.parse(localStorage.getItem('wow_custom_reviews')) || [];
+    } catch (e) {
+      custom = [];
+    }
+    
+    // Add if it doesn't already exist
+    if (!custom.some(r => r.id === review.id)) {
+      custom.push(review);
+      localStorage.setItem('wow_custom_reviews', JSON.stringify(custom));
+    }
+    
+    // Write to Firebase
+    if (typeof WowFirebase !== 'undefined') {
+      WowFirebase.writeReview(review);
+    }
   }
 
   function getRelatedProducts(productId, limit = 4) {
@@ -949,6 +1022,7 @@ const WowStore = (() => {
 
   function clearCart() {
     saveCart([]);
+    localStorage.removeItem('wow_applied_promo');
   }
 
   function getCartTotal() {
@@ -964,9 +1038,26 @@ const WowStore = (() => {
         savings += (product.price - product.subscribePrice) * item.qty;
       }
     });
-    const shipping = subtotal >= 49 ? 0 : 5.99;
-    const tax = subtotal * 0.08;
-    return { subtotal, savings, shipping, tax, total: subtotal + shipping + tax };
+
+    const activeCode = localStorage.getItem('wow_applied_promo');
+    let promoDiscount = 0;
+    if (activeCode && promoCodes[activeCode]) {
+      const promo = promoCodes[activeCode];
+      promoDiscount = promo.type === 'percent' ? (subtotal * promo.discount) : promo.discount;
+    }
+
+    const discountedSubtotal = Math.max(0, subtotal - promoDiscount);
+    const shipping = discountedSubtotal >= 49 ? 0 : 5.99;
+    const tax = discountedSubtotal * 0.08;
+
+    return { 
+      subtotal, 
+      savings, 
+      shipping, 
+      tax, 
+      promoDiscount, 
+      total: discountedSubtotal + shipping + tax 
+    };
   }
 
   function getCartCount() {
@@ -1118,7 +1209,11 @@ const WowStore = (() => {
 
   // ---- Validate Promo ----
   function validatePromo(code) {
-    return promoCodes[code.toUpperCase()] || null;
+    const promo = promoCodes[code.toUpperCase()];
+    if (promo) {
+      localStorage.setItem('wow_applied_promo', code.toUpperCase());
+    }
+    return promo || null;
   }
 
   // ---- Public API ----
@@ -1132,12 +1227,15 @@ const WowStore = (() => {
     getProduct,
     getProducts,
     getProductReviews,
+    addReview,
     getRelatedProducts,
     getBundleProducts,
     generateProductGradient,
     generateProductEmoji,
     getProductImage,
     productImages,
+    getProductVideo,
+    productVideos,
     formatPrice,
     renderStars,
     getCart,

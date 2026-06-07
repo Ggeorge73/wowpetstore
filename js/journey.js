@@ -12,10 +12,11 @@ const JourneyApp = (() => {
   let hoveredPlanet = null;
   let isAnimating = true;
   let cameraTarget = { x: 0, y: 0, z: 0 };
-  let cameraPosition = { x: 0, y: 8, z: 20 };
+  let cameraPosition = { x: 0, y: 8, z: 22 };
   let isDragging = false;
   let dragStart = { x: 0, y: 0 };
   let rotation = { x: 0, y: 0 };
+  let currentRadius = 22;
 
   // Category config
   const categoryConfig = [
@@ -379,8 +380,8 @@ const JourneyApp = (() => {
       const dy = e.clientY - dragStart.y;
       rotation.y = dx * 0.01;
       rotation.x = dy * 0.01;
-      cameraPosition.x = Math.sin(rotation.y) * 22;
-      cameraPosition.z = Math.cos(rotation.y) * 22;
+      cameraPosition.x = Math.sin(rotation.y) * currentRadius;
+      cameraPosition.z = Math.cos(rotation.y) * currentRadius;
       cameraPosition.y = 8 + rotation.x * 5;
       cameraPosition.y = Math.max(2, Math.min(20, cameraPosition.y));
     }
@@ -415,9 +416,10 @@ const JourneyApp = (() => {
   }
 
   function onScroll(e) {
-    const z = cameraPosition.z + e.deltaY * 0.02;
-    cameraPosition.z = Math.max(8, Math.min(40, z));
-    cameraPosition.x = Math.sin(rotation.y) * cameraPosition.z;
+    const r = currentRadius + e.deltaY * 0.02;
+    currentRadius = Math.max(8, Math.min(40, r));
+    cameraPosition.x = Math.sin(rotation.y) * currentRadius;
+    cameraPosition.z = Math.cos(rotation.y) * currentRadius;
   }
 
   function onTouchStart(e) {
@@ -438,8 +440,8 @@ const JourneyApp = (() => {
       const dy = e.touches[0].clientY - dragStart.y;
       rotation.y += dx * 0.003;
       rotation.x += dy * 0.003;
-      cameraPosition.x = Math.sin(rotation.y) * 22;
-      cameraPosition.z = Math.cos(rotation.y) * 22;
+      cameraPosition.x = Math.sin(rotation.y) * currentRadius;
+      cameraPosition.z = Math.cos(rotation.y) * currentRadius;
       cameraPosition.y = 8 + rotation.x * 5;
       cameraPosition.y = Math.max(2, Math.min(20, cameraPosition.y));
       dragStart.x = e.touches[0].clientX;
@@ -492,6 +494,7 @@ const JourneyApp = (() => {
   }
 
   function resetCamera() {
+    currentRadius = 22;
     cameraPosition = { x: 0, y: 8, z: 22 };
     cameraTarget = { x: 0, y: 0, z: 0 };
     rotation = { x: 0, y: 0 };

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Use Pet-Check AI first-aid diagnostic tool to analyze symptoms, get immediate triage advice, and product recommendations.">
+  <title>Pet-Check AI Triage | WowPetStore</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/check.css">
+  <link rel="stylesheet" href="css/pet-cursor.css">
+</head>
+<body>
+  <!-- Navigation bar slot -->
+  <div id="nav-slot"></div>
+
+  <div class="page-body">
+    <div class="container section" style="padding-top: var(--space-6);">
+      
+      <!-- Page Header -->
+      <div class="check-header text-center mb-10">
+        <span class="section-label">👩‍⚕️ First-Aid Diagnostic</span>
+        <h1 class="check-title">Pet-Check <span class="logo-accent">AI</span></h1>
+        <p class="section-subtitle">Real-time symptom checker, home-care instructions, and veterinary triage guidance.</p>
+      </div>
+
+      <!-- Main Layout: Grid split -->
+      <div class="check-layout-grid">
+        
+        <!-- Left Column: Interactive Intake Canvas (Pet Body Mapper) -->
+        <div class="intake-canvas-card">
+          <div class="canvas-header">
+            <h3>Interactive Body Mapper</h3>
+            <p class="text-sm text-muted">Click a region on the pet avatar to view specific symptoms.</p>
+          </div>
+          
+          <!-- Pet Mode Switcher tabs -->
+          <div class="pet-switcher-tabs">
+            <button class="pet-switch-tab active" id="tab-dog-mode" onclick="PetCheckPage.setPetMode('dog')">🐕 Dog Mode</button>
+            <button class="pet-switch-tab" id="tab-cat-mode" onclick="PetCheckPage.setPetMode('cat')">🐈 Cat Mode</button>
+          </div>
+
+          <!-- Pet Interactive Canvas Container -->
+          <div class="pet-avatar-wrapper" id="pet-avatar-wrapper">
+            <!-- Dog SVG Avatar -->
+            <svg class="pet-svg active" id="dog-svg" viewBox="0 0 300 300" width="100%" height="100%">
+              <!-- Stylized Dog Outline -->
+              <path class="pet-body-outline" d="M 60 140 C 60 100, 100 80, 110 80 C 120 80, 130 90, 140 105 C 160 115, 200 120, 220 130 C 235 137, 245 160, 245 180 C 245 195, 230 200, 210 200 C 200 205, 195 230, 190 250 C 187 257, 175 257, 175 250 C 175 220, 170 205, 160 200 C 150 200, 140 210, 135 250 C 133 257, 120 257, 120 250 C 120 220, 110 200, 95 200 C 85 200, 80 215, 75 250 C 73 257, 60 257, 60 250 C 60 210, 50 180, 60 140 Z" />
+              <!-- Dog Head details -->
+              <path class="pet-body-outline" d="M 110 80 C 110 50, 140 50, 145 70" />
+              <path class="pet-body-outline" d="M 120 50 C 115 35, 125 30, 128 45" /> <!-- Ear 1 -->
+              <path class="pet-body-outline" d="M 140 52 C 145 37, 153 34, 154 49" /> <!-- Ear 2 -->
+              <circle cx="126" cy="68" r="3" fill="var(--color-border)" /> <!-- Eye -->
+              <path d="M 148 76 C 149 78, 154 78, 155 76" fill="var(--color-border)" /> <!-- Nose -->
+
+              <!-- Interactive Hotspot regions (with visible pulse anchors) -->
+              <!-- 1. Ears hotspot -->
+              <g class="hotspot-group" data-part="ears" onclick="PetCheckPage.selectPart('ears')">
+                <circle class="hotspot-trigger" cx="132" cy="40" r="16" />
+                <circle class="hotspot-pulse" cx="132" cy="40" r="6" />
+                <text class="hotspot-label" x="154" y="36">👂 Ears</text>
+              </g>
+
+              <!-- 2. Eyes & Nose hotspot -->
+              <g class="hotspot-group" data-part="eyes" onclick="PetCheckPage.selectPart('eyes')">
+                <circle class="hotspot-trigger" cx="136" cy="72" r="14" />
+                <circle class="hotspot-pulse" cx="136" cy="72" r="5" />
+                <text class="hotspot-label" x="156" y="76">🧠 Head/Eyes</text>
+              </g>
+
+              <!-- 3. Mouth & Throat -->
+              <g class="hotspot-group" data-part="mouth" onclick="PetCheckPage.selectPart('mouth')">
+                <circle class="hotspot-trigger" cx="140" cy="98" r="14" />
+                <circle class="hotspot-pulse" cx="140" cy="98" r="5" />
+                <text class="hotspot-label" x="160" y="102">👄 Mouth/Throat</text>
+              </g>
+
+              <!-- 4. Chest / Lungs -->
+              <g class="hotspot-group" data-part="chest" onclick="PetCheckPage.selectPart('chest')">
+                <circle class="hotspot-trigger" cx="96" cy="144" r="22" />
+                <circle class="hotspot-pulse" cx="96" cy="144" r="7" />
+                <text class="hotspot-label" x="124" y="148">🫁 Chest/Lungs</text>
+              </g>
+
+              <!-- 5. Stomach / Abdomen -->
+              <g class="hotspot-group" data-part="stomach" onclick="PetCheckPage.selectPart('stomach')">
+                <circle class="hotspot-trigger" cx="165" cy="155" r="25" />
+                <circle class="hotspot-pulse" cx="165" cy="155" r="8" />
+                <text class="hotspot-label" x="196" y="160">🤢 Stomach/Digestion</text>
+              </g>
+
+              <!-- 6. Paws / Limbs -->
+              <g class="hotspot-group" data-part="paws" onclick="PetCheckPage.selectPart('paws')">
+                <circle class="hotspot-trigger" cx="132" cy="235" r="18" />
+                <circle class="hotspot-pulse" cx="132" cy="235" r="6" />
+                <text class="hotspot-label" x="156" y="239">🐾 Paws/Limbs</text>
+              </g>
+
+              <!-- 7. Skin & Coat -->
+              <g class="hotspot-group" data-part="skin" onclick="PetCheckPage.selectPart('skin')">
+                <circle class="hotspot-trigger" cx="210" cy="165" r="20" />
+                <circle class="hotspot-pulse" cx="210" cy="165" r="6" />
+                <text class="hotspot-label" x="220" y="195">🐕 Skin/Coat</text>
+              </g>
+
+              <!-- 8. Tail -->
+              <g class="hotspot-group" data-part="tail" onclick="PetCheckPage.selectPart('tail')">
+                <circle class="hotspot-trigger" cx="240" cy="140" r="16" />
+                <circle class="hotspot-pulse" cx="240" cy="140" r="5" />
+                <text class="hotspot-label" x="254" y="125">🐕 Tail</text>
+              </g>
+            </svg>
+
+            <!-- Cat SVG Avatar -->
+            <svg class="pet-svg" id="cat-svg" viewBox="0 0 300 300" width="100%" height="100%">
+              <!-- Stylized Cat Outline -->
+              <path class="pet-body-outline" d="M 70 150 C 70 120, 95 100, 105 100 C 115 100, 125 110, 135 120 C 155 125, 185 125, 205 135 C 220 142, 230 160, 230 180 C 230 195, 215 200, 200 200 C 190 205, 185 230, 182 250 C 180 257, 168 257, 168 250 C 168 220, 162 205, 152 200 C 142 200, 132 210, 128 250 C 126 257, 114 257, 114 250 C 114 220, 106 200, 92 200 C 82 200, 78 215, 74 250 C 72 257, 60 257, 60 250 C 60 215, 62 185, 70 150 Z" />
+              <!-- Cat Head Details -->
+              <circle cx="110" cy="78" r="25" fill="none" stroke="var(--color-border)" stroke-width="2" />
+              <path class="pet-body-outline" d="M 92 63 L 90 45 L 103 57" /> <!-- Ear 1 -->
+              <path class="pet-body-outline" d="M 128 63 L 130 45 L 117 57" /> <!-- Ear 2 -->
+              <circle cx="103" cy="74" r="2.5" fill="var(--color-border)" /> <!-- Eye 1 -->
+              <circle cx="117" cy="74" r="2.5" fill="var(--color-border)" /> <!-- Eye 2 -->
+              <polygon points="108,82 112,82 110,84" fill="var(--color-border)" /> <!-- Nose -->
+              <!-- Whiskers -->
+              <line x1="90" y1="80" x2="80" y2="78" stroke="var(--color-border)" stroke-width="1.5" />
+              <line x1="90" y1="83" x2="78" y2="84" stroke="var(--color-border)" stroke-width="1.5" />
+              <line x1="130" y1="80" x2="140" y2="78" stroke="var(--color-border)" stroke-width="1.5" />
+              <line x1="130" y1="83" x2="142" y2="84" stroke="var(--color-border)" stroke-width="1.5" />
+
+              <!-- Cat Tail -->
+              <path class="pet-body-outline" d="M 224 170 C 240 150, 255 100, 250 70 C 248 65, 243 65, 244 72 C 248 95, 233 135, 218 162" />
+
+              <!-- Interactive Hotspot regions (with visible pulse anchors) -->
+              <!-- 1. Ears hotspot -->
+              <g class="hotspot-group" data-part="ears" onclick="PetCheckPage.selectPart('ears')">
+                <circle class="hotspot-trigger" cx="110" cy="45" r="16" />
+                <circle class="hotspot-pulse" cx="110" cy="45" r="6" />
+                <text class="hotspot-label" x="132" y="42">👂 Ears</text>
+              </g>
+
+              <!-- 2. Eyes & Nose hotspot -->
+              <g class="hotspot-group" data-part="eyes" onclick="PetCheckPage.selectPart('eyes')">
+                <circle class="hotspot-trigger" cx="110" cy="76" r="14" />
+                <circle class="hotspot-pulse" cx="110" cy="76" r="5" />
+                <text class="hotspot-label" x="132" y="80">🧠 Head/Eyes</text>
+              </g>
+
+              <!-- 3. Mouth & Throat -->
+              <g class="hotspot-group" data-part="mouth" onclick="PetCheckPage.selectPart('mouth')">
+                <circle class="hotspot-trigger" cx="110" cy="98" r="12" />
+                <circle class="hotspot-pulse" cx="110" cy="98" r="4" />
+                <text class="hotspot-label" x="130" y="106">👄 Mouth/Throat</text>
+              </g>
+
+              <!-- 4. Chest / Lungs -->
+              <g class="hotspot-group" data-part="chest" onclick="PetCheckPage.selectPart('chest')">
+                <circle class="hotspot-trigger" cx="102" cy="144" r="22" />
+                <circle class="hotspot-pulse" cx="102" cy="144" r="7" />
+                <text class="hotspot-label" x="130" y="146">🫁 Chest/Lungs</text>
+              </g>
+
+              <!-- 5. Stomach / Abdomen -->
+              <g class="hotspot-group" data-part="stomach" onclick="PetCheckPage.selectPart('stomach')">
+                <circle class="hotspot-trigger" cx="160" cy="155" r="25" />
+                <circle class="hotspot-pulse" cx="160" cy="155" r="8" />
+                <text class="hotspot-label" x="190" y="160">🤢 Stomach/Digestion</text>
+              </g>
+
+              <!-- 6. Paws / Limbs -->
+              <g class="hotspot-group" data-part="paws" onclick="PetCheckPage.selectPart('paws')">
+                <circle class="hotspot-trigger" cx="126" cy="235" r="18" />
+                <circle class="hotspot-pulse" cx="126" cy="235" r="6" />
+                <text class="hotspot-label" x="150" y="239">🐾 Paws/Limbs</text>
+              </g>
+
+              <!-- 7. Skin & Coat -->
+              <g class="hotspot-group" data-part="skin" onclick="PetCheckPage.selectPart('skin')">
+                <circle class="hotspot-trigger" cx="198" cy="165" r="20" />
+                <circle class="hotspot-pulse" cx="198" cy="165" r="6" />
+                <text class="hotspot-label" x="210" y="195">🐈 Skin/Coat</text>
+              </g>
+
+              <!-- 8. Tail -->
+              <g class="hotspot-group" data-part="tail" onclick="PetCheckPage.selectPart('tail')">
+                <circle class="hotspot-trigger" cx="240" cy="90" r="16" />
+                <circle class="hotspot-pulse" cx="240" cy="90" r="5" />
+                <text class="hotspot-label" x="254" y="90">🐈 Tail</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Right Column: Intake Query Console -->
+        <div class="query-console-card">
+          <div class="console-header">
+            <h3>Diagnostic Intake</h3>
+            <p class="text-sm text-muted">Provide details regarding your pet's behavioral signs.</p>
+          </div>
+
+          <!-- Anatomical Region Symptoms Panel (Populated dynamically) -->
+          <div class="region-symptom-selector" id="region-symptom-selector" style="display: none;">
+            <div class="selected-region-header">
+              <span id="selected-region-title">Ears Symptoms</span>
+              <button class="close-region-btn" onclick="PetCheckPage.clearSelectedRegion()">&times;</button>
+            </div>
+            <div class="symptom-tag-container" id="symptom-tag-container">
+              <!-- Symptom tags injected dynamically -->
+            </div>
+          </div>
+
+          <form class="query-form" id="query-form" onsubmit="PetCheckPage.runDiagnostic(event)">
+            <div class="input-group">
+              <label for="symptom-input">Describe symptoms in your own words</label>
+              <textarea id="symptom-input" placeholder="e.g. My golden retriever is limping on his front paw, panting heavily, and seems lethargic." rows="5" required></textarea>
+            </div>
+
+            <!-- Suggestion chips (quick input) -->
+            <div class="symptom-suggestions">
+              <span class="suggestion-title">Popular searches:</span>
+              <div class="suggestion-chips">
+                <button type="button" class="chip" onclick="PetCheckPage.setSymptomText('Dog has itchy ears and keeps shaking head')">👂 Itchy ears</button>
+                <button type="button" class="chip" onclick="PetCheckPage.setSymptomText('Cat is vomiting and has lost appetite')">🤢 Cat vomiting</button>
+                <button type="button" class="chip" onclick="PetCheckPage.setSymptomText('Dog is limping on his leg after running outside')">🐾 Limping paw</button>
+                <button type="button" class="chip" onclick="PetCheckPage.setSymptomText('My dog swallowed chocolate')">🍫 Ate chocolate</button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="run-check-btn">
+              🩺 Run Diagnostics
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- Section: Diagnostic Outputs & Actionable Triage Results (Hidden by default) -->
+      <div class="results-wrapper section" id="results-wrapper" style="display: none; margin-top: var(--space-8);">
+        
+        <!-- Color-Coded Severity Indicator Banner -->
+        <div class="severity-banner" id="severity-banner">
+          <div class="severity-icon-box" id="severity-icon-box">🟢</div>
+          <div class="severity-text-box">
+            <h2 id="severity-title">Mild / Non-Urgent Triage</h2>
+            <p id="severity-description">Treatable at home with basic first-aid, hydration, and comfort care.</p>
+          </div>
+        </div>
+
+        <!-- Output Split Grid -->
+        <div class="results-grid mt-6">
+          
+          <!-- Column 1: Immediate Triage First-Aid Guides -->
+          <div class="first-aid-card">
+            <h3><span class="card-icon">🩹</span> Initial First-Aid Fixes</h3>
+            <ul class="first-aid-steps" id="first-aid-steps">
+              <!-- Steps injected dynamically -->
+            </ul>
+          </div>
+
+          <!-- Column 2: What to Tell Your Vet Checklist -->
+          <div class="vet-checklist-card">
+            <div class="flex justify-between items-center mb-3">
+              <h3><span class="card-icon">📋</span> Vet-Readiness Checklist</h3>
+              <button class="btn btn-secondary btn-sm" onclick="PetCheckPage.copyChecklist()" id="copy-checklist-btn">
+                📄 Copy Checklist
+              </button>
+            </div>
+            <p class="text-sm text-muted mb-4">Copy and paste this summary to share with your vet during your consultation.</p>
+            <div class="checklist-box" id="checklist-box" contenteditable="false">
+              <!-- Summary text injected dynamically -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section: Curated Stores recommendations loop -->
+        <div class="store-recommendations-section mt-8" id="store-recommendations-section" style="display: none;">
+          <h3 class="mb-4">🌿 Curated Recovery Essentials</h3>
+          <p class="text-muted text-sm mb-6">Based on the reported symptoms, these premium recovery products can support your pet's comfort and rehabilitation.</p>
+          <div class="horizontal-scroll" id="recommended-products-grid">
+            <!-- Product cards injected dynamically -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Full-Screen Emergency Red-Flag Intercept Overlay -->
+  <div class="emergency-overlay" id="emergency-overlay" style="display: none;">
+    <div class="emergency-modal">
+      <div class="emergency-header">
+        <span class="alert-pulse">🔴</span>
+        <h2>CRITICAL LIFE-THREATENING EMERGENCY DETECTED</h2>
+      </div>
+      
+      <div class="emergency-body">
+        <p class="emergency-alert-text">Based on your input, your pet is showing critical "Red Flag" symptoms that require immediate, professional emergency veterinary medical care. <strong>Do not attempt home remedies.</strong></p>
+        
+        <div class="emergency-instructions">
+          <h4>Immediate Actions:</h4>
+          <ul>
+            <li><strong>Transport Immediately:</strong> Secure your pet in a carrier or wrap them gently in a blanket and head to the nearest emergency clinic.</li>
+            <li><strong>Do Not Induce Vomiting:</strong> Unless specifically instructed by animal poison control specialists.</li>
+            <li><strong>Call Ahead:</strong> Phone the clinic while en route so their medical staff can prepare for your arrival.</li>
+          </ul>
+        </div>
+
+        <div class="emergency-hotlines">
+          <div class="hotline-box">
+            <strong>📞 ASPCA Animal Poison Control</strong>
+            <a href="tel:8884264435" class="hotline-link">(888) 426-4435</a>
+          </div>
+          <div class="hotline-box">
+            <strong>📞 Pet Poison Helpline</strong>
+            <a href="tel:8557647661" class="hotline-link">(855) 764-7661</a>
+          </div>
+        </div>
+
+        <!-- Emergency Clinic Map Widget Mock -->
+        <div class="emergency-map-card">
+          <div class="map-header">
+            <span>📍 Nearest 24/7 Veterinary Emergencies</span>
+            <span class="gps-badge">GPS Enabled</span>
+          </div>
+          <div class="map-placeholder">
+            <div class="mock-map-marker marker-1">
+              <span class="marker-pulse"></span>🐾 Emergency Vet Clinic A (0.8 mi)
+            </div>
+            <div class="mock-map-marker marker-2">
+              <span class="marker-pulse"></span>🐾 24/7 Animal Trauma Center (2.4 mi)
+            </div>
+            <div class="map-watermark">Map Data Simulation &copy; Google Maps</div>
+          </div>
+        </div>
+
+        <div class="emergency-footer">
+          <button class="btn btn-primary btn-block btn-lg" onclick="PetCheckPage.dismissEmergency()">
+            Dismiss Alert & Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legal Sticky Disclaimer Footer -->
+  <footer class="disclaimer-sticky-footer">
+    <div class="container">
+      <p>⚠️ <strong>Medical Disclaimer:</strong> Pet-Check AI is an educational triage assistant and does not replace professional veterinary medicine, diagnosis, or treatment. If your pet is in severe distress, go to an emergency clinic immediately.</p>
+    </div>
+  </footer>
+
+  <!-- Footer slot -->
+  <div id="footer-slot"></div>
+
+  <!-- Script imports -->
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/animations.js"></script>
+  <script src="js/check.js"></script>
+  <script>
+    WowApp.init('check');
+    PetCheckPage.init();
+  </script>
+  <script src="js/pet-cursor.js"></script>
+</body>
+</html>

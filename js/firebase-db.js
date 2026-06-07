@@ -12,9 +12,9 @@ const WowFirebase = (() => {
   // IMPORTANT: Replace these placeholders with your real Firebase Web App credentials!
   const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    authDomain: "wow-pet-store.firebaseapp.com",
+    projectId: "wow-pet-store",
+    storageBucket: "wow-pet-store.appspot.com",
     messagingSenderId: "YOUR_SENDER_ID",
     appId: "YOUR_APP_ID"
   };
@@ -213,7 +213,7 @@ const WowFirebase = (() => {
         const cloudData = doc.data();
         
         // Merge carts (combine quantities of same products)
-        const cart = [...cloudData.cart];
+        const cart = [...(cloudData.cart || [])];
         guestCart.forEach(gItem => {
           const match = cart.find(cItem => cItem.productId === gItem.productId && cItem.isSubscription === gItem.isSubscription);
           if (match) {
@@ -248,7 +248,7 @@ const WowFirebase = (() => {
         };
 
         // Merge streak (take maximum streak)
-        const streak = (cloudData.streak?.current || 0) >= (guestStreak.current || 0) ? cloudData.streak : guestStreak;
+        const streak = (cloudData.streak?.current || 0) >= (guestStreak.current || 0) ? (cloudData.streak || { current: 0, lastVisit: '', history: [] }) : guestStreak;
 
         // Build final profile
         mergedData = {
@@ -272,6 +272,19 @@ const WowFirebase = (() => {
       replaceLocalState(mergedData);
     } catch (err) {
       console.error("🐾 [WowPetStore] Failed to sync data with Firestore on login:", err);
+      // Recover local UI state to ensure the interface doesn't lock up in half-auth state
+      const localBackup = {
+        cart: JSON.parse(localStorage.getItem('wow_cart')) || [],
+        pets: JSON.parse(localStorage.getItem('wow_pets')) || [],
+        wishlist: JSON.parse(localStorage.getItem('wow_wishlist')) || [],
+        loyalty: JSON.parse(localStorage.getItem('wow_loyalty')) || { points: 0, history: [] },
+        subscriptions: JSON.parse(localStorage.getItem('wow_subscriptions')) || [],
+        orders: JSON.parse(localStorage.getItem('wow_orders')) || [],
+        gameHighScore: JSON.parse(localStorage.getItem('wow_game_high')) || { score: 0, correct: 0, played: 0 },
+        streak: JSON.parse(localStorage.getItem('wow_streak')) || { current: 0, lastVisit: '', history: [] },
+        profile: JSON.parse(localStorage.getItem('wow_profile_info')) || {}
+      };
+      replaceLocalState(localBackup);
     }
   }
 
@@ -488,6 +501,58 @@ const WowFirebase = (() => {
     }
   }
 
+  // Write product review into global database collection
+  async function writeReview(review) {
+    if (isMock) {
+      try {
+        const custom = JSON.parse(localStorage.getItem('wow_custom_reviews')) || [];
+        custom.push(review);
+        localStorage.setItem('wow_custom_reviews', JSON.stringify(custom));
+        console.log("🐾 [WowPetStore - Mock] Review written to local custom reviews storage.");
+      } catch (e) {}
+      return Promise.resolve();
+    }
+    
+    try {
+      const reviewData = {
+        ...review,
+        userId: currentUser ? currentUser.uid : 'guest',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection('reviews').doc(review.id).set(reviewData);
+      console.log(`🐾 [WowPetStore] Review transacted successfully to Firestore: ${review.id}`);
+    } catch (err) {
+      console.error("🐾 [WowPetStore] Firestore review write failed:", err);
+    }
+  }
+
+  // Fetch reviews for specific product
+  async function fetchReviews(productId) {
+    if (isMock) {
+      try {
+        const custom = JSON.parse(localStorage.getItem('wow_custom_reviews')) || [];
+        return Promise.resolve(custom.filter(r => r.productId === parseInt(productId)));
+      } catch (e) {
+        return Promise.resolve([]);
+      }
+    }
+
+    try {
+      const snapshot = await db.collection('reviews')
+        .where('productId', '==', parseInt(productId))
+        .get();
+      
+      const list = [];
+      snapshot.forEach(doc => {
+        list.push(doc.data());
+      });
+      return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (err) {
+      console.error(`🐾 [WowPetStore] Failed to query reviews for product ${productId}:`, err);
+      return [];
+    }
+  }
+
   return {
     init,
     signInWithEmail,
@@ -502,6 +567,8 @@ const WowFirebase = (() => {
     isMockMode,
     syncUserData,
     syncMockDataLocally,
-    writeOrderToRootDb
+    writeOrderToRootDb,
+    writeReview,
+    fetchReviews
   };
 })();

@@ -13,3 +13,5 @@ desktop.ini
 # Temp
 *.log
 *.tmp
+.firebase/
+
