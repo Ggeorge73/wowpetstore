@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Secure checkout at My Wow Pet. Complete your order.">
-  <title>Checkout | My Wow Pet</title>
+  <meta name="description" content="Demo checkout at My Wow Pet. Review the order flow before production payment integration.">
+  <title>Demo Checkout | My Wow Pet</title>
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
@@ -17,6 +17,10 @@
 
   <div class="page-body" id="checkout-page">
     <div class="container section" style="padding-top: var(--space-4);">
+      <div role="status" aria-live="polite" style="margin-bottom: var(--space-5); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); color: var(--color-text);">
+        <strong>Demo checkout mode:</strong> This flow is safe for testing only. It does not charge a real card, authorize payment, calculate live shipping/tax, or create a production fulfillment order.
+      </div>
+
       <!-- Progress Steps -->
       <div class="progress-steps" id="progress-steps">
         <div class="progress-step active" data-step="0">
@@ -31,7 +35,7 @@
         <div class="progress-step-line"></div>
         <div class="progress-step" data-step="2">
           <div class="progress-step-circle">3</div>
-          <span class="progress-step-label">Payment</span>
+          <span class="progress-step-label">Demo Payment</span>
         </div>
         <div class="progress-step-line"></div>
         <div class="progress-step" data-step="3">
@@ -101,50 +105,53 @@
             </div>
             <div class="flex justify-between" style="margin-top: var(--space-4);">
               <button class="btn btn-ghost" onclick="CheckoutPage.prevStep()">&#x2190; Back</button>
-              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.nextStep()">Continue to Payment</button>
+              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.nextStep()">Continue to Demo Payment</button>
             </div>
           </div>
 
-          <!-- Step 2: Payment -->
+          <!-- Step 2: Demo Payment -->
           <div class="checkout-form-section checkout-step" data-step="2" style="display: none;">
-            <h3>&#x1F4B3; Payment Details</h3>
-            <p class="text-sm text-muted mb-4">&#x1F512; Your payment information is encrypted and secure.</p>
+            <h3>&#x1F4B3; Demo Payment Details</h3>
+            <p class="text-sm text-muted mb-4">&#x26A0;&#xFE0F; Demo only: these fields validate formatting but do not charge a card or create a real payment authorization. Replace this step with Shopify Checkout, Stripe Checkout, or another PCI-compliant provider before launch.</p>
             <div class="form-row">
               <div class="input-group">
-                <label for="cardName">Name on Card</label>
+                <label for="cardName">Demo Name on Card</label>
                 <input type="text" id="cardName" placeholder="John Doe" required>
               </div>
             </div>
             <div class="form-row">
               <div class="input-group">
-                <label for="cardNumber">Card Number</label>
+                <label for="cardNumber">Demo Card Number</label>
                 <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" required>
               </div>
             </div>
             <div class="form-row two-col">
               <div class="input-group">
-                <label for="expiry">Expiry Date</label>
+                <label for="expiry">Demo Expiry Date</label>
                 <input type="text" id="expiry" placeholder="MM/YY" maxlength="5" required>
               </div>
               <div class="input-group">
-                <label for="cvv">CVV</label>
+                <label for="cvv">Demo CVV</label>
                 <input type="text" id="cvv" placeholder="123" maxlength="4" required>
               </div>
             </div>
             <div class="flex justify-between" style="margin-top: var(--space-4);">
               <button class="btn btn-ghost" onclick="CheckoutPage.prevStep()">&#x2190; Back</button>
-              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.nextStep()">Review Order</button>
+              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.nextStep()">Review Demo Order</button>
             </div>
           </div>
 
           <!-- Step 3: Review -->
           <div class="checkout-form-section checkout-step" data-step="3" style="display: none;">
-            <h3>&#x1F4CB; Review Your Order</h3>
+            <h3>&#x1F4CB; Review Your Demo Order</h3>
             <div id="review-items"></div>
             <div id="review-totals" style="margin-top: var(--space-6);"></div>
+            <div style="margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.10); font-size: var(--fs-sm);">
+              This will create a demo order record only. No customer payment will be collected and no fulfillment should be triggered from this flow.
+            </div>
             <div class="flex justify-between" style="margin-top: var(--space-6);">
               <button class="btn btn-ghost" onclick="CheckoutPage.prevStep()">&#x2190; Back</button>
-              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.placeOrder()" id="place-order-btn">&#x1F512; Place Order</button>
+              <button class="btn btn-primary btn-lg" onclick="CheckoutPage.placeOrder()" id="place-order-btn">Create Demo Order</button>
             </div>
           </div>
         </div>
@@ -159,13 +166,13 @@
   <div id="checkout-success" class="checkout-success" style="display: none;">
     <div class="container">
       <div class="success-icon">&#x2713;</div>
-      <h2>Order Confirmed!</h2>
-      <p>Thank you for your order. You'll receive a confirmation email shortly.</p>
+      <h2>Demo Order Recorded</h2>
+      <p>Thank you for testing the checkout flow. This is not a paid production order.</p>
       <div class="order-number" id="order-number-display"></div>
       <div class="loyalty-earned" id="loyalty-earned-display"></div>
       <br>
       <a href="index.html" class="btn btn-primary btn-lg">Continue Shopping</a>
-      <a href="profile.html" class="btn btn-secondary btn-lg" style="margin-left: var(--space-3);">View Orders</a>
+      <a href="profile.html" class="btn btn-secondary btn-lg" style="margin-left: var(--space-3);">View Demo Orders</a>
     </div>
   </div>
 
