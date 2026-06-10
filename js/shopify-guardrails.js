@@ -1,35 +1,20 @@
 /* ============================================
    My Wow Pet — Shopify Mapping Guardrails
-   Prevents unmapped local products from silently falling back to the wrong checkout product.
+   Uses product.shopifyId from WowStore as the single mapping source.
    ============================================ */
 
 (function () {
-  const SHOPIFY_PRODUCT_IDS = Object.freeze({
-    1: '7989696430163',
-    2: '7989696462931',
-    3: '7989696561235',
-    4: '7989696626771',
-    5: '7989696790611',
-    6: '7989696921683',
-    7: '7989696987219',
-    8: '7989697019987',
-    9: '7989697052755',
-    10: '7989697085523',
-    11: '7989697151059',
-    12: '7989697183827',
-    13: '7989697216595',
-    14: '7989697249363',
-    15: '7989697314899',
-    16: '7989697609811',
-    17: '7989697642579',
-    18: '7989697675347',
-    19: '7989697740883',
-    20: '7989697839187',
-    21: '7989697871955',
-    22: '7989698199635',
-    23: '7989698297939',
-    24: '7989698330707'
-  });
+  const LEGACY_FALLBACK_SHOPIFY_ID = '7989696430163';
+
+  function isExplicitShopifyMapping(product) {
+    if (!product || !product.shopifyId) return false;
+
+    // Product 1 is the real owner of the legacy fallback ID. If any other
+    // product receives that ID, it came from the old fallback and must be blocked.
+    if (String(product.shopifyId) === LEGACY_FALLBACK_SHOPIFY_ID && Number(product.id) !== 1) return false;
+
+    return true;
+  }
 
   function renderUnavailable(node, productId) {
     if (!node) return;
@@ -41,7 +26,7 @@
         </p>
       </div>
     `;
-    console.error(`[My Wow Pet] Missing explicit Shopify product mapping for local product ID: ${productId || 'unknown'}`);
+    console.error(`[My Wow Pet] Missing Shopify mapping for local product ID: ${productId || 'unknown'}`);
   }
 
   function applyProductMappingGuard() {
@@ -53,7 +38,7 @@
       const product = originalGetProduct(id);
       if (!product) return product;
 
-      const explicitShopifyId = SHOPIFY_PRODUCT_IDS[Number(product.id)] || null;
+      const explicitShopifyId = isExplicitShopifyMapping(product) ? product.shopifyId : null;
       return {
         ...product,
         shopifyId: explicitShopifyId,
@@ -62,7 +47,8 @@
     };
 
     window.WowStore.getShopifyProductId = function getShopifyProductId(id) {
-      return SHOPIFY_PRODUCT_IDS[Number(id)] || null;
+      const product = originalGetProduct(id);
+      return isExplicitShopifyMapping(product) ? product.shopifyId : null;
     };
 
     window.WowStore.__shopifyMappingGuarded = true;
